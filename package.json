@@ -15,6 +15,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.52",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@shikijs/core": "^3.23.0",
     "@shikijs/engine-javascript": "^3.23.0",

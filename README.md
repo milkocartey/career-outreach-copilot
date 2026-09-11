@@ -37,85 +37,89 @@ purpose.
    - **View & apply**, linking straight to the original job posting, for you to apply on the
      company's own site.
 
-Built on [eve](https://eve.dev), Vercel's framework for durable AI agents, with a Next.js
-frontend.
+Built with [eve](https://eve.dev) and Next.js. Every user runs their own copy on their own
+machine with their own API key — nobody's resume or usage cost touches anyone else's.
 
-## Deploy your own
-
-Each user runs their own copy with their own API key — nobody's resume or usage cost touches
-anyone else's deployment.
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/milkocartey/career-outreach-copilot)
-
-After clicking Deploy, Vercel will ask you to set `AI_GATEWAY_API_KEY` (see below).
-
-## Configuration
-
-Copy `.env.example` to `.env.local` for local development:
+## Run it locally
 
 ```bash
-cp .env.example .env.local
+git clone https://github.com/milkocartey/career-outreach-copilot.git
+cd career-outreach-copilot
+npm install
+cp .env.example .env.local   # then paste your key, see below
+npm run dev
 ```
 
-| Variable              | Required?                              | What it's for                                                                                            |
-| ---------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `AI_GATEWAY_API_KEY`   | Yes, unless deployed via a linked Vercel project | Authenticates model calls through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). Get one from your Vercel dashboard. |
+Open `http://localhost:3000`. That's it — no account, no cloud service, nothing to deploy.
 
-If you deploy with `eve link` / `eve deploy` (see below) to a Vercel project, Vercel's OIDC
-handles this for you and you can skip setting the key by hand.
+### Get an API key
+
+This app calls Anthropic's API directly:
+
+1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) and
+   create a key (a free/pay-as-you-go Anthropic account, not a Vercel one).
+2. Paste it into `.env.local` as `ANTHROPIC_API_KEY=...`.
+
+| Variable            | Required? | What it's for                                        |
+| ------------------- | --------- | ----------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | Yes       | Authenticates the agent's calls to Anthropic's API.    |
 
 ### Changing the model
 
 The agent's model is set in `agent/agent.ts`:
 
 ```ts
+import { anthropic } from "@ai-sdk/anthropic";
+
 export default defineAgent({
-  model: "anthropic/claude-sonnet-5",
+  model: anthropic("claude-sonnet-5"),
   reasoning: "high",
 });
 ```
 
-Swap `model` for any [AI Gateway model id](https://vercel.com/ai-gateway/models). This task
-leans on careful multi-step web research and judgment calls about what counts as "verified," so a
-weaker or faster-tier model will likely produce a shorter, less reliable report — keep that in
-mind if you change it to cut cost.
-
-## Local development
-
-```bash
-git clone https://github.com/milkocartey/career-outreach-copilot.git
-cd career-outreach-copilot
-npm install
-cp .env.example .env.local  # then fill in AI_GATEWAY_API_KEY
-npm run dev
-```
-
-This starts the Next.js app with the eve agent mounted alongside it. Open
-`http://localhost:3000`.
-
-## Deploying manually
-
-```bash
-npx eve link       # links or creates a Vercel project, pulls its env vars
-npx eve deploy      # builds and deploys to production
-```
-
-See eve's [Vercel deployment guide](https://eve.dev/docs/guides/deployment/vercel) for details,
-including how to point at a different model provider.
+This task leans on careful multi-step web research and judgment calls about what counts as
+"verified," so a weaker or faster model will likely produce a shorter, less reliable report —
+keep that in mind if you change it to cut cost. To use a different provider (OpenAI, Google,
+etc.) instead of Anthropic, swap in that provider's AI SDK package and model the same way; see
+eve's [Agents guide](https://eve.dev/docs/agent-config) for the full list of options.
 
 ## Privacy & data
 
 There are no user accounts and nothing is written to a database — the whole flow is one
 request/response per report. The one thing to know: this app is configured to accept anonymous
 browser requests (`none()` auth in `agent/channels/eve.ts`), so it works out of the box with zero
-setup. That's the right tradeoff for a tool you run for yourself, but if you deploy it somewhere
-other people can reach and want to restrict who can use it, swap that for your own auth (Auth.js,
-Clerk, a shared password) — see eve's
-[Authentication guide](https://eve.dev/docs/guides/auth-and-route-protection).
+setup. That's the right tradeoff for a tool you run for yourself; see
+[Sharing this with other people](#sharing-this-with-other-people) if you deploy it somewhere more
+than one person can reach.
 
-Your resume is sent to whatever model provider you've configured via the AI Gateway, subject to
-that provider's own data-handling terms — review the [AI Gateway model catalog](https://vercel.com/ai-gateway/models)
-for the provider you pick.
+Your resume is sent to Anthropic's API, subject to
+[Anthropic's own data-handling terms](https://www.anthropic.com/legal/commercial-terms) — this
+project has no server of its own in between.
+
+## Sharing this with other people
+
+The intended way to share this project is: send people the GitHub link, and they run it locally
+with their own key, exactly as above. Nothing to host, nothing to pay for on your end.
+
+If you'd rather put it somewhere with a real URL — for yourself, or for a small group — the
+project also deploys to [Vercel](https://vercel.com) as-is, since it's built on eve:
+
+```bash
+npx eve link       # links or creates a Vercel project, pulls its env vars
+npx eve deploy      # builds and deploys to production
+```
+
+or click:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/milkocartey/career-outreach-copilot)
+
+This is entirely optional — it requires a Vercel account and is a separate thing from running the
+app locally. If you do this and more than one person can reach the deployed URL, also replace the
+`none()` auth in `agent/channels/eve.ts` with something that restricts access (Auth.js, Clerk, a
+shared password) — see eve's
+[Authentication guide](https://eve.dev/docs/guides/auth-and-route-protection). See eve's
+[deployment overview](https://eve.dev/docs/guides/deployment/overview) for self-hosting outside
+of Vercel entirely.
 
 ## Contributing
 
