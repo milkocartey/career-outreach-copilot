@@ -46,7 +46,6 @@ machine with their own API key — nobody's resume or usage cost touches anyone 
 git clone https://github.com/milkocartey/career-outreach-copilot.git
 cd career-outreach-copilot
 npm install
-cp .env.example .env.local   # then paste your key, see below
 npm run dev
 ```
 
@@ -54,15 +53,22 @@ Open `http://localhost:3000`. That's it — no account, no cloud service, nothin
 
 ### Get an API key
 
-This app calls Anthropic's API directly:
+This app calls Anthropic's API directly, and there's no config file to edit for it:
 
 1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) and
    create a key (a free/pay-as-you-go Anthropic account, not a Vercel one).
-2. Paste it into `.env.local` as `ANTHROPIC_API_KEY=...`.
+2. In the app, click **Add API key** (top right) and paste it in. It's saved to a local file
+   (`.data/settings.json`, already gitignored — never commit it) and takes effect on your next
+   search immediately, no restart needed.
 
-| Variable            | Required? | What it's for                                        |
-| ------------------- | --------- | ----------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | Yes       | Authenticates the agent's calls to Anthropic's API.    |
+If you'd rather use an environment variable instead (e.g. for a production deploy where the
+Settings panel's local-file storage doesn't fit), set `ANTHROPIC_API_KEY` — copy `.env.example`
+to `.env.local`, or set it in your host's dashboard. An env var always takes priority over the
+Settings panel.
+
+| Variable            | Required?                                 | What it's for                                       |
+| ------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | No — only if you skip the Settings panel   | Authenticates the agent's calls to Anthropic's API.   |
 
 ### Changing the model
 
@@ -114,9 +120,11 @@ or click:
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/milkocartey/career-outreach-copilot)
 
 This is entirely optional — it requires a Vercel account and is a separate thing from running the
-app locally. If you do this and more than one person can reach the deployed URL, also replace the
-`none()` auth in `agent/channels/eve.ts` with something that restricts access (Auth.js, Clerk, a
-shared password) — see eve's
+app locally. On a serverless deploy, set `ANTHROPIC_API_KEY` as a project environment variable
+rather than relying on the Settings panel — its local-file storage doesn't persist reliably
+across serverless instances. If you do this and more than one person can reach the deployed URL,
+also replace the `none()` auth in `agent/channels/eve.ts` with something that restricts access
+(Auth.js, Clerk, a shared password) — see eve's
 [Authentication guide](https://eve.dev/docs/guides/auth-and-route-protection). See eve's
 [deployment overview](https://eve.dev/docs/guides/deployment/overview) for self-hosting outside
 of Vercel entirely.
