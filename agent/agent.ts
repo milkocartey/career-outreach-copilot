@@ -5,13 +5,15 @@ import { getAnthropicApiKey } from "../lib/settings-store";
 // The API key can come from an env var (ANTHROPIC_API_KEY, e.g. on a Vercel
 // deploy) or from the in-app Settings panel for a pure local self-host with
 // no terminal/file setup — see lib/settings-store.ts for the resolution
-// order. Resolving it per session (rather than once at module load) means a
-// key saved in Settings takes effect on the very next search, no restart
-// needed.
+// order. Session/turn-scoped dynamic model selections must be plain model id
+// strings (serializable for durable replay); a live provider object with a
+// custom apiKey baked in is only allowed from a step.started resolver, so we
+// resolve here rather than at session.started even though that means
+// re-checking the key before every model call in the turn.
 export default defineAgent({
   model: defineDynamic({
     events: {
-      "session.started": async () => {
+      "step.started": async () => {
         const apiKey = await getAnthropicApiKey();
         if (apiKey === undefined) {
           throw new Error(
