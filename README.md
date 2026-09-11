@@ -58,8 +58,9 @@ This app calls Anthropic's API directly, and there's no config file to edit for 
 1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) and
    create a key (a free/pay-as-you-go Anthropic account, not a Vercel one).
 2. In the app, click **Add API key** (top right) and paste it in. It's saved to a local file
-   (`.data/settings.json`, already gitignored — never commit it) and takes effect on your next
-   search immediately, no restart needed.
+   (`.data/settings.json`, already gitignored — never commit it). Restart the app (`Ctrl+C`,
+   then `npm run dev` again) for it to take effect — same as changing an environment variable
+   would. This is a one-time setup step; you won't need to touch it again after that.
 
 If you'd rather use an environment variable instead (e.g. for a production deploy where the
 Settings panel's local-file storage doesn't fit), set `ANTHROPIC_API_KEY` — copy `.env.example`

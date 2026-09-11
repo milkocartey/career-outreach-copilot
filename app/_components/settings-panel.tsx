@@ -24,6 +24,7 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [saved, setSaved] = useState(false);
 
   const refreshStatus = async () => {
     const response = await fetch("/api/settings");
@@ -50,8 +51,8 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
       });
       if (!response.ok) throw new Error("Could not save the key.");
       setApiKey("");
+      setSaved(true);
       await refreshStatus();
-      setOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save the key.");
     } finally {
@@ -60,7 +61,13 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
   };
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
+    <Dialog
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setSaved(false);
+      }}
+      open={open}
+    >
       <Button
         className="gap-1.5"
         onClick={() => setOpen(true)}
@@ -114,6 +121,16 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
               value={apiKey}
             />
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
+            {saved ? (
+              <p className="text-primary text-sm">
+                Saved. <strong>Restart the app</strong> (stop it and run{" "}
+                <code>npm run dev</code> again) for it to take effect.
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Saving requires an app restart to take effect — a one-time step.
+              </p>
+            )}
           </div>
         )}
 

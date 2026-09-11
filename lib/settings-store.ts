@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -27,6 +28,26 @@ export async function getAnthropicApiKey(): Promise<string | undefined> {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
   const settings = await readSettings();
   return settings.anthropicApiKey;
+}
+
+/**
+ * Same resolution as getAnthropicApiKey, but synchronous and read once at
+ * module load — used by agent/agent.ts. eve can only auto-select a model
+ * provider's native web search tool for a plain, statically-assigned direct
+ * provider model; a per-session dynamic resolver defeats that detection and
+ * silently falls back to a Gateway-only search backend that doesn't work
+ * without a Gateway. That's the trade-off here: the key still never touches
+ * a terminal or .env file, but changing it via Settings needs an app restart
+ * to take effect, same as changing an environment variable would.
+ */
+export function getAnthropicApiKeySync(): string | undefined {
+  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+  try {
+    const raw = readFileSync(SETTINGS_PATH, "utf8");
+    return (JSON.parse(raw) as StoredSettings).anthropicApiKey;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function isAnthropicApiKeyFromEnv(): Promise<boolean> {
