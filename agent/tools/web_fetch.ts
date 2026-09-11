@@ -18,6 +18,11 @@ import { z } from "zod";
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_RESPONSE_BYTES = 2_000_000;
 const UNSAFE_DESTINATION_ERROR = "URL must not target localhost, private, or link-local addresses.";
+// A slow-loading or connection-holding server previously hung this tool call
+// forever (no timeout at all) and stalled the whole agent turn along with
+// it. 20s covers a normal page fetch; anything slower is worth failing so
+// the model can move on instead of the turn silently never finishing.
+const REQUEST_TIMEOUT_MS = 20_000;
 
 function isUnsafeAddress(address: string): boolean {
   const family = isIP(address);
@@ -96,7 +101,16 @@ export default defineTool({
       const agent = new Agent({ connect: { lookup: createSafeLookup() } });
       let response: Awaited<ReturnType<typeof undiciFetch>>;
       try {
-        response = await undiciFetch(current, { dispatcher: agent, redirect: "manual" });
+        response = await undiciFetch(current, {
+          dispatcher: agent,
+          redirect: "manual",
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "TimeoutError") {
+          throw new Error(`Request to ${current.hostname} timed out after ${REQUEST_TIMEOUT_MS / 1000}s.`);
+        }
+        throw error;
       } finally {
         await agent.close();
       }
