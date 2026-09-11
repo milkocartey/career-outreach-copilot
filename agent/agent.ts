@@ -7,9 +7,10 @@ import { getAnthropicApiKeySync } from "../lib/settings-store";
 // assigned direct-provider model rather than a per-session dynamic resolver:
 // eve only auto-selects a provider's native web search tool (vs. a
 // Gateway-only backend that doesn't work without a Gateway) for that shape.
-// The trade-off: changing the key via Settings needs an app restart to take
-// effect, same as changing an env var would — but still never touches a
-// terminal or .env file.
+// The trade-off: a newly saved key only takes effect in a fresh process —
+// app/api/settings/route.ts handles that by exiting the process right after
+// saving, and scripts/dev-supervisor.mjs (wired up as `npm run dev`/`start`)
+// immediately relaunches it, so nobody has to restart anything by hand.
 const apiKey = getAnthropicApiKeySync();
 
 export default apiKey === undefined
@@ -17,9 +18,7 @@ export default apiKey === undefined
       model: defineDynamic({
         events: {
           "step.started": () => {
-            throw new Error(
-              "No Anthropic API key configured yet. Add one from the Settings panel, then restart the app.",
-            );
+            throw new Error("No Anthropic API key configured yet. Add one from the Settings panel.");
           },
         },
       }),

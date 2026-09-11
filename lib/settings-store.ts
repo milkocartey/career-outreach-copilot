@@ -36,9 +36,11 @@ export async function getAnthropicApiKey(): Promise<string | undefined> {
  * provider's native web search tool for a plain, statically-assigned direct
  * provider model; a per-session dynamic resolver defeats that detection and
  * silently falls back to a Gateway-only search backend that doesn't work
- * without a Gateway. That's the trade-off here: the key still never touches
- * a terminal or .env file, but changing it via Settings needs an app restart
- * to take effect, same as changing an environment variable would.
+ * without a Gateway. A newly saved key only takes effect in a fresh process
+ * as a result — app/api/settings/route.ts exits the process right after
+ * saving, and scripts/dev-supervisor.mjs relaunches it automatically, so
+ * this restart is never something the person using the app has to do by
+ * hand.
  */
 export function getAnthropicApiKeySync(): string | undefined {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;

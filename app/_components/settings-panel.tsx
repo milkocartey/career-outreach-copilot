@@ -18,19 +18,21 @@ interface SettingsStatus {
   readonly fromEnv: boolean;
 }
 
+type SaveState = "idle" | "saving" | "restarting" | "done";
+
 export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (status: SettingsStatus) => void }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<SettingsStatus>();
   const [apiKey, setApiKey] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string>();
-  const [saved, setSaved] = useState(false);
 
   const refreshStatus = async () => {
     const response = await fetch("/api/settings");
     const data = (await response.json()) as SettingsStatus;
     setStatus(data);
     onStatusChange?.(data);
+    return data;
   };
 
   useEffect(() => {
@@ -39,9 +41,28 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The app restarts itself after saving (see app/api/settings/route.ts), so
+  // it's briefly unreachable. Poll until it's back, then refresh status.
+  const waitForRestart = async () => {
+    setSaveState("restarting");
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        await refreshStatus();
+        setSaveState("done");
+        return;
+      } catch {
+        // Server is mid-restart; keep polling.
+      }
+    }
+    setError("The app is taking longer than expected to restart. Try reloading the page.");
+    setSaveState("idle");
+  };
+
   const handleSave = async () => {
     if (apiKey.trim().length === 0) return;
-    setSaving(true);
+    setSaveState("saving");
     setError(undefined);
     try {
       const response = await fetch("/api/settings", {
@@ -51,12 +72,10 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
       });
       if (!response.ok) throw new Error("Could not save the key.");
       setApiKey("");
-      setSaved(true);
-      await refreshStatus();
+      await waitForRestart();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save the key.");
-    } finally {
-      setSaving(false);
+      setSaveState("idle");
     }
   };
 
@@ -64,7 +83,7 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
     <Dialog
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setSaved(false);
+        if (next) setSaveState("idle");
       }}
       open={open}
     >
@@ -96,7 +115,16 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            {status?.configured ? (
+            {saveState === "restarting" ? (
+              <p className="flex items-center gap-2 text-sm">
+                <Loader2Icon className="size-4 animate-spin" /> Restarting the app to apply your
+                key — this takes a few seconds…
+              </p>
+            ) : saveState === "done" ? (
+              <p className="flex items-center gap-2 text-sm">
+                <CheckCircle2Icon className="size-4 text-primary" /> Done — you're all set.
+              </p>
+            ) : status?.configured ? (
               <p className="flex items-center gap-2 text-sm">
                 <CheckCircle2Icon className="size-4 text-primary" /> A key is configured.
               </p>
@@ -114,30 +142,27 @@ export function SettingsPanel({ onStatusChange }: { readonly onStatusChange?: (s
                 .
               </p>
             )}
-            <Input
-              onChange={(event) => setApiKey(event.currentTarget.value)}
-              placeholder="sk-ant-…"
-              type="password"
-              value={apiKey}
-            />
+
+            {saveState === "idle" ? (
+              <Input
+                onChange={(event) => setApiKey(event.currentTarget.value)}
+                placeholder="sk-ant-…"
+                type="password"
+                value={apiKey}
+              />
+            ) : null}
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
-            {saved ? (
-              <p className="text-primary text-sm">
-                Saved. <strong>Restart the app</strong> (stop it and run{" "}
-                <code>npm run dev</code> again) for it to take effect.
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Saving requires an app restart to take effect — a one-time step.
-              </p>
-            )}
           </div>
         )}
 
         <DialogFooter>
-          {status?.fromEnv ? null : (
-            <Button disabled={apiKey.trim().length === 0 || saving} onClick={() => void handleSave()} type="button">
-              {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+          {status?.fromEnv || saveState === "restarting" || saveState === "done" ? null : (
+            <Button
+              disabled={apiKey.trim().length === 0 || saveState === "saving"}
+              onClick={() => void handleSave()}
+              type="button"
+            >
+              {saveState === "saving" ? <Loader2Icon className="size-4 animate-spin" /> : null}
               Save
             </Button>
           )}

@@ -9,9 +9,9 @@
   "scripts": {
     "build": "next build",
     "deploy": "eve deploy",
-    "dev": "next dev",
+    "dev": "node scripts/dev-supervisor.mjs dev",
     "eval": "eve eval",
-    "start": "next start",
+    "start": "node scripts/dev-supervisor.mjs start",
     "typecheck": "tsc"
   },
   "dependencies": {
