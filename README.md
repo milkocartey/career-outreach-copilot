@@ -1,10 +1,23 @@
 # Career Outreach Copilot
 
-Upload your resume, say what job you're looking for and where, and get a report of real,
+Share your resume, say what job you're looking for and where, and get a report of real,
 verified companies and openings with personalized outreach already drafted — ready for **you**
 to review and send.
 
+Two ways to use this, pick one:
+
+- **[The Skill](#option-a-the-skill-free-recommended)** — free, works in a normal Claude
+  conversation (claude.ai or Claude Code), uses whatever Claude access you already have. No API
+  key, no billing, no install beyond adding one file.
+- **[The web app](#option-b-the-self-hosted-web-app)** — a standalone site you run yourself, for
+  when you want a shareable UI. Requires your own Anthropic API key, billed separately per use.
+
+If you just want this to work without spending anything beyond what you already pay for Claude:
+use the Skill.
+
 ## What this deliberately does not do
+
+(Applies to both options.)
 
 - **It never sends anything on its own.** No email, no LinkedIn message, no anything — every
   outreach action in the app is a manual click you make after reading the draft.
@@ -18,13 +31,48 @@ to review and send.
 If you're looking for a tool that auto-applies to jobs for you: that's not this project, on
 purpose.
 
-## How it works
+Both options follow the same research discipline: verify a company actually exists and actually
+has a presence in the location you asked for (via two independent sources, not just a familiar
+brand name), find a real contact where possible, and draft outreach grounded in your actual
+resume — never sending or applying on their own.
+
+## Option A: The Skill (free, recommended)
+
+This is a [Claude Skill](https://www.anthropic.com/news/skills) — instructions Claude loads when
+what you're asking for matches, then carries out using tools it already has (web search, reading
+your resume). No server, no API key, no cost beyond your normal Claude usage.
+
+### Install it
+
+Copy [`skills/career-outreach/SKILL.md`](skills/career-outreach/SKILL.md) into your own skills
+folder:
+
+- **Claude Code**: put it at `.claude/skills/career-outreach/SKILL.md` in any project (or
+  `~/.claude/skills/` to have it everywhere).
+- **claude.ai**: Settings → Capabilities → Skills → upload the file (or the `career-outreach`
+  folder).
+
+### Use it
+
+Start a conversation, share your resume (attach the file or paste it), and describe what you're
+looking for — job type, target role, geographic area. Claude will recognize the request, load the
+skill, and produce the report directly in the conversation (and offer to save it as a file if
+you're in Claude Code).
+
+Nothing to run, nothing to deploy, nothing billed beyond the conversation itself.
+
+## Option B: The self-hosted web app
+
+A standalone Next.js + [eve](https://eve.dev) app with a form and a proper report UI (mailto
+buttons, copy-to-clipboard for LinkedIn, links to postings) — useful if you want a shareable link
+or a UI instead of a chat. This one calls the Anthropic API directly and needs your own API key,
+billed per use to your Anthropic account — see [Cost](#cost) before you start.
+
+### How it works
 
 1. You fill in a short form: your resume (PDF), the type of role you want (internship,
    full-time, freelance, etc.), a target title, and a geographic area.
-2. An AI agent researches real companies matching your criteria, using web search — it's
-   instructed to verify each one actually exists and actually has a presence in the location you
-   asked for (not just an office somewhere, or a familiar brand name) before including it.
+2. An AI agent researches real companies matching your criteria, using web search.
 3. For each verified lead, it tries to find a real contact (a named person with a published
    email, or at least a LinkedIn profile) or the original job posting, and drafts a personalized
    outreach message grounded in your actual resume.
@@ -37,10 +85,19 @@ purpose.
    - **View & apply**, linking straight to the original job posting, for you to apply on the
      company's own site.
 
-Built with [eve](https://eve.dev) and Next.js. Every user runs their own copy on their own
-machine with their own API key — nobody's resume or usage cost touches anyone else's.
+Every user runs their own copy on their own machine with their own API key — nobody's resume or
+usage cost touches anyone else's.
 
-## Run it locally
+### Cost
+
+Anthropic bills the API per token, separately from any claude.ai/Claude Code subscription — a
+subscription does not cover this. Expect roughly **$0.20–$1** for one thorough search across
+~15 companies with the default model and settings, depending on how much the agent needs to
+search and verify. `agent/agent.ts` sets `limits.maxTokenCostUsdPerSession` as a hard ceiling so
+a run can't run away past that regardless — see [Changing the model](#changing-the-model) to
+trade quality for a lower ceiling.
+
+### Run it locally
 
 ```bash
 git clone https://github.com/milkocartey/career-outreach-copilot.git
@@ -74,16 +131,23 @@ Settings panel.
 
 ### Changing the model
 
-The agent's model is set in `agent/agent.ts`:
+The agent's model, reasoning effort, and cost ceiling are set in `agent/agent.ts`:
 
 ```ts
-import { anthropic } from "@ai-sdk/anthropic";
+const MAX_USD_PER_SEARCH = 0.75;
 
 export default defineAgent({
-  model: anthropic("claude-sonnet-5"),
-  reasoning: "high",
+  model: createAnthropic({ apiKey })("claude-sonnet-5"),
+  reasoning: "medium",
+  limits: { maxTokenCostUsdPerSession: MAX_USD_PER_SEARCH },
 });
 ```
+
+`limits.maxTokenCostUsdPerSession` is a hard stop: eve fails the run rather than let a search
+spend past it, however it got there (an unusually thorough run, a confused model retrying). Raise
+it for deeper runs, lower it to cap spend more tightly. `reasoning` trades depth for cost —
+`"medium"` is the default; `"high"` produces more thorough verification but costs and takes
+noticeably more per search.
 
 This task leans on careful multi-step web research and judgment calls about what counts as
 "verified," so a weaker or faster model will likely produce a shorter, less reliable report —

@@ -13,6 +13,14 @@ import { getAnthropicApiKeySync } from "../lib/settings-store";
 // immediately relaunches it, so nobody has to restart anything by hand.
 const apiKey = getAnthropicApiKeySync();
 
+// Hard ceiling on model token cost per search — the Anthropic API bills per
+// token with no built-in cap, so a run that spirals (a confused model
+// retrying, an unusually large number of companies) can't silently rack up
+// an open-ended bill. eve stops the session and reports failure once this is
+// crossed instead of continuing. Raise it if you want deeper, more thorough
+// runs and are fine paying more per search.
+const MAX_USD_PER_SEARCH = 0.75;
+
 export default apiKey === undefined
   ? defineAgent({
       model: defineDynamic({
@@ -22,9 +30,13 @@ export default apiKey === undefined
           },
         },
       }),
-      reasoning: "high",
+      reasoning: "medium",
+      limits: { maxTokenCostUsdPerSession: MAX_USD_PER_SEARCH },
     })
   : defineAgent({
       model: createAnthropic({ apiKey })("claude-sonnet-5"),
-      reasoning: "high",
+      // "medium" instead of "high": cheaper and faster, still capable enough
+      // for the multi-step verify-then-draft research this task needs.
+      reasoning: "medium",
+      limits: { maxTokenCostUsdPerSession: MAX_USD_PER_SEARCH },
     });
